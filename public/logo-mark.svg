@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="PaisaPal">
+  <!-- Rounded-square mark: emerald wallet with flap as upward arrow + coin -->
+  <rect width="512" height="512" rx="112" fill="#0F766E"/>
+  <!-- Wallet body -->
+  <rect x="108" y="248" width="296" height="164" rx="44" fill="#FFFFFF"/>
+  <!-- Flap shaped as an upward-trending arrow -->
+  <path
+    fill="#FFFFFF"
+    d="M148 268 L256 132 L364 268 L308 268 L256 196 L204 268 Z"
+  />
+  <!-- Coin on the rising flap -->
+  <circle cx="318" cy="156" r="46" fill="#FFFFFF"/>
+  <circle cx="318" cy="156" r="20" fill="#0F766E"/>
+</svg>

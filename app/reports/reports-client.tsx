@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   Bar,
@@ -8,6 +7,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -15,6 +16,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { IconDownload } from "@/components/Icons";
+import { AppShell, SurfaceCard } from "@/components/AppShell";
+import { MonthSwitcher } from "@/components/MonthSwitcher";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { ChartSkeleton } from "@/components/ui/Skeleton";
 import { DEFAULT_BASE_CURRENCY } from "@/lib/currency";
 import { currentMonthKey } from "@/lib/expenses";
 import { formatMoney } from "@/lib/money";
@@ -23,10 +29,19 @@ type CategorySlice = {
   categoryId: string;
   category: string;
   total: number;
+  percentage: number;
+  previousTotal: number;
+  changePercent: number | null;
 };
 
 type MonthBar = {
   month: string;
+  income: number;
+  expenses: number;
+};
+
+type DailyPoint = {
+  date: string;
   total: number;
 };
 
@@ -40,23 +55,36 @@ type TopExpense = {
   currency?: string;
 };
 
+type SavingsSummary = {
+  income: number;
+  expenses: number;
+  rate: number | null;
+};
+
 type ReportsPayload = {
   month: string;
   baseCurrency?: string;
   byCategory: CategorySlice[];
   byMonth: MonthBar[];
+  dailySpending: DailyPoint[];
+  savings: SavingsSummary;
   topExpenses: TopExpense[];
 };
 
 const PIE_COLORS = [
   "#0f766e",
-  "#0369a1",
-  "#b45309",
-  "#be123c",
-  "#4f46e5",
-  "#15803d",
-  "#7c2d12",
+  "#059669",
+  "#10b981",
+  "#ef4444",
+  "#f59e0b",
+  "#14b8a6",
+  "#047857",
 ];
+
+const CHART_GRID = "rgba(148, 163, 184, 0.35)";
+const CHART_INCOME = "#059669";
+const CHART_EXPENSE = "#ef4444";
+const CHART_PRIMARY = "#0f766e";
 
 function formatMonthLabel(month: string): string {
   if (!/^\d{4}-\d{2}$/.test(month)) return "…";
@@ -65,6 +93,42 @@ function formatMonthLabel(month: string): string {
     month: "short",
     year: "numeric",
   }).format(new Date(year, mon - 1, 1));
+}
+
+function formatMonthLabelLong(monthKey: string): string {
+  if (!/^\d{4}-\d{2}$/.test(monthKey)) return "…";
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(new Date(year, month - 1, 1));
+}
+
+function shiftMonth(monthKey: string, delta: number): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  const next = new Date(year, month - 1 + delta, 1);
+  const y = next.getFullYear();
+  const m = String(next.getMonth() + 1).padStart(2, "0");
+  return `${y}-${m}`;
+}
+
+function formatDayLabel(date: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  const day = Number(date.slice(8, 10));
+  return String(day);
+}
+
+function categoryComparisonText(slice: CategorySlice): string | null {
+  if (slice.changePercent === null) {
+    return `${slice.category} is new compared to last month`;
+  }
+  if (slice.changePercent === 0) {
+    if (slice.total === 0 && slice.previousTotal === 0) return null;
+    return `${slice.category} is unchanged from last month`;
+  }
+  const abs = Math.abs(slice.changePercent);
+  const direction = slice.changePercent > 0 ? "higher" : "lower";
+  return `${slice.category} is ${abs}% ${direction} than last month`;
 }
 
 export function ReportsClient() {
@@ -76,7 +140,8 @@ export function ReportsClient() {
 
   useEffect(() => {
     if (!month) {
-      setMonth(currentMonthKey());
+      // Defer so setState is not synchronous in the effect body.
+      void Promise.resolve().then(() => setMonth(currentMonthKey()));
       return;
     }
 
@@ -107,7 +172,8 @@ export function ReportsClient() {
       }
     }
 
-    void load();
+    // Defer so setState inside load is not synchronous in the effect body.
+    void Promise.resolve().then(() => load());
     return () => controller.abort();
   }, [month]);
 
@@ -122,154 +188,318 @@ export function ReportsClient() {
   const barData =
     data?.byMonth.map((row) => ({
       month: formatMonthLabel(row.month),
+      income: row.income / 100,
+      expenses: row.expenses / 100,
+      incomeMinor: row.income,
+      expensesMinor: row.expenses,
+    })) ?? [];
+
+  const lineData =
+    data?.dailySpending.map((row) => ({
+      day: formatDayLabel(row.date),
+      date: row.date,
       total: row.total / 100,
       totalMinor: row.total,
     })) ?? [];
 
+  const hasIncomeOrExpenses = barData.some(
+    (row) => row.incomeMinor > 0 || row.expensesMinor > 0,
+  );
+  const hasDailySpend = lineData.some((row) => row.totalMinor > 0);
+
+  const pieTotalMinor = pieData.reduce((sum, slice) => sum + slice.value, 0);
+
   return (
-    <div className="min-h-full bg-zinc-100 text-zinc-900">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-10">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <nav className="flex items-center gap-3 text-sm">
-              <Link href="/" className="text-zinc-600 hover:text-zinc-900">
-                ← Expenses
-              </Link>
-              <span className="text-zinc-300">/</span>
-              <Link
-                href={`/budgets?month=${encodeURIComponent(month)}`}
-                className="text-zinc-600 hover:text-zinc-900"
-              >
-                Budgets
-              </Link>
-              <span className="text-zinc-300">/</span>
-              <Link
-                href="/settings"
-                className="text-zinc-600 hover:text-zinc-900"
-              >
-                Settings
-              </Link>
-              <span className="text-zinc-300">/</span>
-              <span className="font-medium text-zinc-900">Reports</span>
-            </nav>
-            <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
-              Reports
-            </h1>
-            <p className="mt-1 text-sm text-zinc-600">
-              Server-aggregated spending charts for the selected month.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-sm text-zinc-700">
-              Month
-              <input
-                type="month"
-                value={month}
-                onChange={(e) => setMonth(e.target.value)}
-                className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 shadow-sm outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
-              />
-            </label>
-            <a
-              href={`/api/reports?month=${encodeURIComponent(month)}&format=csv`}
-              className="inline-flex items-center justify-center rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
-            >
-              Download CSV
-            </a>
-          </div>
-        </header>
-
+    <AppShell
+      title="Reports"
+      description="Server-aggregated spending charts for the selected month."
+      month={month}
+      maxWidth="5xl"
+      actions={
+        <div className="flex flex-wrap items-center gap-2">
+          <MonthSwitcher
+            label={formatMonthLabelLong(month)}
+            onPrev={() => setMonth((prev) => shiftMonth(prev, -1))}
+            onNext={() => setMonth((prev) => shiftMonth(prev, 1))}
+          />
+          <a
+            href={`/api/reports?month=${encodeURIComponent(month)}&format=csv`}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover"
+          >
+            <IconDownload className="h-4 w-4" />
+            Download CSV
+          </a>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-8">
         {error ? (
-          <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
             {error}
           </p>
         ) : null}
 
         {loading && !data ? (
-          <p className="text-sm text-zinc-500">Loading report…</p>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <ChartSkeleton />
+            <ChartSkeleton />
+            <ChartSkeleton className="lg:col-span-2" />
+          </div>
         ) : null}
 
+        <SurfaceCard>
+          <h2 className="text-lg font-medium text-zinc-900">Savings rate</h2>
+          <p className="mb-4 text-sm text-zinc-600">
+            (Income − expenses) ÷ income for {formatMonthLabel(month)} (
+            {baseCurrency}).
+          </p>
+          {!data ? (
+            <EmptyState title="Savings rate will appear once the report loads." />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Income
+                </p>
+                <p className="mt-1 text-xl font-semibold text-zinc-900">
+                  {formatMoney(data.savings.income, baseCurrency)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Expenses
+                </p>
+                <p className="mt-1 text-xl font-semibold text-zinc-900">
+                  {formatMoney(data.savings.expenses, baseCurrency)}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                  Savings rate
+                </p>
+                <p className="mt-1 text-xl font-semibold text-teal-800">
+                  {data.savings.rate == null
+                    ? "N/A"
+                    : `${data.savings.rate}%`}
+                </p>
+                {data.savings.rate == null ? (
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Add income this month to calculate a rate.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          )}
+        </SurfaceCard>
+
+        {data ? (
         <section className="grid gap-6 lg:grid-cols-2">
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+          <SurfaceCard>
             <h2 className="text-lg font-medium text-zinc-900">
               Spending by category
             </h2>
             <p className="mb-4 text-sm text-zinc-600">
               Donut chart for the selected month ({baseCurrency}).
             </p>
-            <div className="h-72 w-full">
+            <div className="relative h-72 w-full">
               {pieData.length === 0 ? (
-                <EmptyState label="No spending in this month." />
+                <EmptyState title="No spending this month." description="Expenses you add will show up here." />
               ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={58}
-                      outerRadius={96}
-                      paddingAngle={2}
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell
-                          key={entry.name}
-                          fill={PIE_COLORS[index % PIE_COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value) =>
-                        typeof value === "number"
-                          ? formatMoney(value, baseCurrency)
-                          : String(value ?? "")
-                      }
-                    />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
+                <>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={58}
+                        outerRadius={96}
+                        paddingAngle={3}
+                        cornerRadius={4}
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell
+                            key={entry.name}
+                            fill={PIE_COLORS[index % PIE_COLORS.length]}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value) =>
+                          typeof value === "number"
+                            ? formatMoney(value, baseCurrency)
+                            : String(value ?? "")
+                        }
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Total
+                    </p>
+                    <p className="font-heading text-lg font-semibold tabular-nums text-foreground">
+                      {formatMoney(pieTotalMinor, baseCurrency)}
+                    </p>
+                  </div>
+                </>
               )}
             </div>
-          </div>
 
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="text-lg font-medium text-zinc-900">Last 6 months</h2>
+            {data && data.byCategory.length > 0 ? (
+              <ul className="mt-4 divide-y divide-zinc-200 border-t border-zinc-200">
+                {data.byCategory.map((slice, index) => {
+                  const comparison = categoryComparisonText(slice);
+                  return (
+                    <li
+                      key={slice.categoryId}
+                      className="flex flex-col gap-1 py-3 sm:flex-row sm:items-start sm:justify-between"
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{
+                              backgroundColor:
+                                PIE_COLORS[index % PIE_COLORS.length],
+                            }}
+                            aria-hidden
+                          />
+                          <p className="font-medium text-zinc-900">
+                            {slice.category}{" "}
+                            <span className="font-normal text-zinc-500">
+                              {slice.percentage}%
+                            </span>
+                          </p>
+                        </div>
+                        {comparison ? (
+                          <p className="mt-1 pl-5 text-xs text-zinc-500">
+                            {comparison}
+                          </p>
+                        ) : null}
+                      </div>
+                      <p className="pl-5 text-sm font-semibold text-zinc-900 sm:pl-0 sm:text-right">
+                        {formatMoney(slice.total, baseCurrency)}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </SurfaceCard>
+
+          <SurfaceCard>
+            <h2 className="text-lg font-medium text-zinc-900">
+              Income vs expenses
+            </h2>
             <p className="mb-4 text-sm text-zinc-600">
-              Total spending per month ({baseCurrency}).
+              Last 6 months ({baseCurrency}).
             </p>
             <div className="h-72 w-full">
-              {barData.every((row) => row.totalMinor === 0) ? (
-                <EmptyState label="No spending in the last 6 months." />
+              {!hasIncomeOrExpenses ? (
+                <EmptyState title="No income or expenses yet." description="Track a few months to see this chart." />
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} width={48} />
+                  <BarChart data={barData} barGap={4} barCategoryGap="18%">
+                    <CartesianGrid stroke={CHART_GRID} strokeDasharray="4 4" vertical={false} />
+                    <XAxis dataKey="month" tick={{ fontSize: 12, fill: "#64748b" }} />
+                    <YAxis tick={{ fontSize: 12, fill: "#64748b" }} width={48} />
                     <Tooltip
+                      formatter={(value, name) => {
+                        const label =
+                          name === "income"
+                            ? "Income"
+                            : name === "expenses"
+                              ? "Expenses"
+                              : String(name ?? "");
+                        return [
+                          typeof value === "number"
+                            ? formatMoney(Math.round(value * 100), baseCurrency)
+                            : String(value ?? ""),
+                          label,
+                        ];
+                      }}
+                    />
+                    <Legend
                       formatter={(value) =>
-                        typeof value === "number"
-                          ? formatMoney(Math.round(value * 100), baseCurrency)
-                          : String(value ?? "")
+                        value === "income"
+                          ? "Income"
+                          : value === "expenses"
+                            ? "Expenses"
+                            : value
                       }
                     />
-                    <Bar dataKey="total" fill="#0f766e" radius={[4, 4, 0, 0]} />
+                    <Bar
+                      dataKey="income"
+                      fill={CHART_INCOME}
+                      radius={[6, 6, 0, 0]}
+                    />
+                    <Bar
+                      dataKey="expenses"
+                      fill={CHART_EXPENSE}
+                      radius={[6, 6, 0, 0]}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               )}
             </div>
-          </div>
+          </SurfaceCard>
         </section>
+        ) : null}
 
-        <section className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm sm:p-5">
+        {data ? (
+        <SurfaceCard>
+          <h2 className="text-lg font-medium text-zinc-900">Daily spending</h2>
+          <p className="mb-4 text-sm text-zinc-600">
+            Day-by-day totals for {formatMonthLabel(month)} ({baseCurrency}).
+          </p>
+          <div className="h-72 w-full">
+            {!hasDailySpend ? (
+              <EmptyState title="No daily spending yet." description="This month has no expense activity." />
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={lineData}>
+                  <CartesianGrid stroke={CHART_GRID} strokeDasharray="4 4" vertical={false} />
+                  <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#64748b" }} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 12, fill: "#64748b" }} width={48} />
+                  <Tooltip
+                    labelFormatter={(_, payload) => {
+                      const point = payload?.[0]?.payload as
+                        | { date?: string }
+                        | undefined;
+                      return point?.date ?? "";
+                    }}
+                    formatter={(value) =>
+                      typeof value === "number"
+                        ? formatMoney(Math.round(value * 100), baseCurrency)
+                        : String(value ?? "")
+                    }
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="total"
+                    stroke={CHART_PRIMARY}
+                    strokeWidth={2.5}
+                    dot={false}
+                    activeDot={{ r: 5, fill: CHART_PRIMARY }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </SurfaceCard>
+        ) : null}
+
+        {data ? (
+        <SurfaceCard>
           <h2 className="text-lg font-medium text-zinc-900">
             Top 5 biggest expenses
           </h2>
           <p className="mb-4 text-sm text-zinc-600">
             Largest items in the selected month ({baseCurrency}).
           </p>
-          {!data || data.topExpenses.length === 0 ? (
-            <EmptyState label="No expenses to rank this month." />
+          {data.topExpenses.length === 0 ? (
+            <EmptyState title="No big expenses yet." description="Your top five will appear here." />
           ) : (
             <ol className="divide-y divide-zinc-200 border-y border-zinc-200">
               {data.topExpenses.map((expense, index) => (
@@ -302,16 +532,9 @@ export function ReportsClient() {
               ))}
             </ol>
           )}
-        </section>
+        </SurfaceCard>
+        ) : null}
       </div>
-    </div>
-  );
-}
-
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="flex h-full min-h-40 items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-4 text-sm text-zinc-500">
-      {label}
-    </div>
+    </AppShell>
   );
 }

@@ -20,8 +20,8 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     const { categoryId } = await context.params;
 
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, userId },
     });
     if (!category) {
       return jsonError("Category not found.", 404);

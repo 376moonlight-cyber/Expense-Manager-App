@@ -17,20 +17,30 @@ model User {
   updatedAt    DateTime @updatedAt
 
   expenses          Expense[]
+  incomes           Income[]
   budgets           Budget[]
   setting           Setting?
   recurringExpenses RecurringExpense[]
+  categories        Category[]
+  wallets           Wallet[]
+  walletTransfers   WalletTransfer[]
+  goals             Goal[]
 }
 
-/// Shared across all users — seeded once, referenced by everyone.
+/// Per-user categories — each account manages its own list.
 model Category {
   id        String   @id @default(cuid())
-  name      String   @unique
+  name      String
+  userId    String
   createdAt DateTime @default(now())
 
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenses          Expense[]
   budgets           Budget[]
   recurringExpenses RecurringExpense[]
+
+  @@unique([userId, name])
+  @@index([userId])
 }
 
 model Expense {
@@ -47,13 +57,22 @@ model Expense {
   date        DateTime
   categoryId  String
   userId      String
+  /// Cash | Card | Bank Transfer | JazzCash | Easypaisa | Other
+  paymentMethod String @default("Cash")
+  /// Optional free-text notes
+  notes       String   @default("")
+  /// Clean string tags stored as JSON array (e.g. ["food","lunch"])
+  tags        Json     @default("[]")
   /// Set when this expense was auto-generated from a recurring template
   recurringExpenseId String?
+  /// Optional wallet this expense was paid from
+  walletId    String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   category         Category          @relation(fields: [categoryId], references: [id])
   user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet           Wallet?           @relation(fields: [walletId], references: [id], onDelete: SetNull)
   receipt          Receipt?
   recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
 
@@ -61,6 +80,40 @@ model Expense {
   @@index([userId, date])
   @@index([categoryId])
   @@index([recurringExpenseId, date])
+  @@index([userId, paymentMethod])
+  @@index([walletId])
+}
+
+model Income {
+  id                   String   @id @default(cuid())
+  /// Amount in smallest currency unit (cents/paisa) — never floats
+  amountMinor          Int
+  /// ISO-like currency code for the original amount (e.g. PKR, USD)
+  currency             String   @default("PKR")
+  /// amountMinor converted into the user's base currency at save time
+  convertedAmountMinor Int      @default(0)
+  /// Units of base currency per 1 unit of `currency` used when saving
+  exchangeRateUsed     Float    @default(1)
+  /// e.g. Salary, Freelance, Gift, Other
+  source               String
+  description          String   @default("")
+  date                 DateTime
+  userId               String
+  /// Set when this income was auto-generated from a recurring template
+  recurringExpenseId   String?
+  /// Optional wallet this income was received into
+  walletId             String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wallet           Wallet?           @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, date])
+  @@index([recurringExpenseId, date])
+  @@index([walletId])
 }
 
 model Receipt {
@@ -76,25 +129,40 @@ model Receipt {
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 }
 
+enum RecurringType {
+  EXPENSE
+  INCOME
+}
+
 model RecurringExpense {
-  id                 String  @id @default(cuid())
+  id                 String        @id @default(cuid())
   amountMinor        Int
   description        String
-  categoryId         String
+  /// EXPENSE posts to expenses; INCOME posts to incomes (e.g. salary)
+  type               RecurringType @default(EXPENSE)
+  /// Required for EXPENSE; unused for INCOME
+  categoryId         String?
   userId             String
   /// Charge day each month (1–28 to avoid end-of-month edge cases)
   dayOfMonth         Int
-  active             Boolean @default(true)
-  /// Last YYYY-MM for which an expense was generated (null = never)
+  /// Pause/resume without deleting the template
+  active             Boolean       @default(true)
+  /// Optional first occurrence date (inclusive)
+  startDate          DateTime?
+  /// Optional last occurrence date (inclusive) — e.g. 12-month installment
+  endDate            DateTime?
+  /// Last YYYY-MM for which an entry was generated (null = never)
   lastGeneratedMonth String?
 
-  category Category  @relation(fields: [categoryId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id])
   user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   expenses Expense[]
+  incomes  Income[]
 
   @@index([userId])
   @@index([categoryId])
   @@index([userId, active])
+  @@index([userId, type])
 }
 
 model Budget {
@@ -107,7 +175,7 @@ model Budget {
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])
 
-  // Each user has at most one budget per shared category
+  // Each user has at most one budget per category
   @@unique([userId, categoryId])
   @@index([userId])
 }
@@ -119,8 +187,70 @@ model Setting {
   baseCurrency  String   @default("PKR")
   /// Map of currency code → base-currency units per 1 unit (e.g. {"USD": 280})
   exchangeRates Json     @default("{}")
+  /// Last successful full ZIP backup download
+  lastBackupAt  DateTime?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Per-user cash, bank, or mobile wallet account.
+model Wallet {
+  id                  String   @id @default(cuid())
+  name                String
+  /// Cash | Bank | Mobile wallet
+  type                String
+  /// Starting balance in base-currency minor units
+  openingBalanceMinor Int      @default(0)
+  userId              String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses      Expense[]
+  incomes       Income[]
+  transfersFrom WalletTransfer[] @relation("TransferFrom")
+  transfersTo   WalletTransfer[] @relation("TransferTo")
+
+  @@index([userId])
+}
+
+/// Move money between two of the user's wallets (does not create income/expense).
+model WalletTransfer {
+  id           String   @id @default(cuid())
+  userId       String
+  fromWalletId String
+  toWalletId   String
+  amountMinor  Int
+  note         String   @default("")
+  date         DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  user       User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fromWallet Wallet @relation("TransferFrom", fields: [fromWalletId], references: [id], onDelete: Cascade)
+  toWallet   Wallet @relation("TransferTo", fields: [toWalletId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([fromWalletId])
+  @@index([toWalletId])
+}
+
+/// Per-user savings goal with progress toward a target.
+model Goal {
+  id                String    @id @default(cuid())
+  name              String
+  /// Target amount in base-currency minor units
+  targetAmountMinor Int
+  /// Amount already saved in base-currency minor units
+  savedAmountMinor  Int       @default(0)
+  /// Optional deadline date
+  deadline          DateTime?
+  userId            String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

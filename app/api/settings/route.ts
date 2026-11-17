@@ -18,8 +18,24 @@ export async function GET() {
     if ("error" in session) return session.error;
     const { userId } = session;
 
-    const settings = await getOrCreateSettings(userId);
-    return NextResponse.json(settings);
+    const [settings, user, settingRow] = await Promise.all([
+      getOrCreateSettings(userId),
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { name: true, email: true },
+      }),
+      prisma.setting.findUnique({
+        where: { userId },
+        select: { lastBackupAt: true },
+      }),
+    ]);
+
+    return NextResponse.json({
+      ...settings,
+      lastBackupAt: settingRow?.lastBackupAt?.toISOString() ?? null,
+      name: user?.name ?? "",
+      email: user?.email ?? "",
+    });
   } catch (error) {
     return serverError("GET /api/settings", error, "Failed to load settings.");
   }

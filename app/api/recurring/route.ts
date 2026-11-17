@@ -5,17 +5,35 @@ import {
   serverError,
   validationError,
 } from "@/lib/api";
-import { toMinorUnits } from "@/lib/expenses";
+import { currentMonthKey, toMinorUnits } from "@/lib/expenses";
 import { prisma } from "@/lib/prisma";
-import { recurringBodySchema } from "@/lib/recurring";
+import {
+  generateRecurringExpensesForMonth,
+  nextDueDate,
+  parseOptionalDate,
+  recurringBodySchema,
+} from "@/lib/recurring";
 import { requireUserId } from "@/lib/session";
 
 const recurringInclude = {
   category: true,
 } as const;
 
-function serializeRecurring<T extends { amountMinor: number }>(item: T) {
-  return { ...item, amount: item.amountMinor };
+function serializeRecurring<
+  T extends {
+    amountMinor: number;
+    active: boolean;
+    dayOfMonth: number;
+    startDate: Date | null;
+    endDate: Date | null;
+    lastGeneratedMonth: string | null;
+  },
+>(item: T) {
+  return {
+    ...item,
+    amount: item.amountMinor,
+    nextDueDate: nextDueDate(item),
+  };
 }
 
 export async function GET() {
@@ -23,6 +41,8 @@ export async function GET() {
     const session = await requireUserId();
     if ("error" in session) return session.error;
     const { userId } = session;
+
+    await generateRecurringExpensesForMonth(userId, currentMonthKey());
 
     const items = await prisma.recurringExpense.findMany({
       where: { userId },
@@ -35,7 +55,7 @@ export async function GET() {
     return serverError(
       "GET /api/recurring",
       error,
-      "Failed to list recurring expenses.",
+      "Failed to list recurring items.",
     );
   }
 }
@@ -58,21 +78,37 @@ export async function POST(request: NextRequest) {
       return validationError(parsed.error);
     }
 
-    const { amount, description, categoryId, dayOfMonth } = parsed.data;
+    const {
+      amount,
+      description,
+      type,
+      categoryId,
+      dayOfMonth,
+      startDate,
+      endDate,
+    } = parsed.data;
 
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-    });
-    if (!category) {
-      return jsonError("Category does not exist.", 400);
+    if (type === "EXPENSE") {
+      if (!categoryId) {
+        return jsonError("Category is required for expenses.", 400);
+      }
+      const category = await prisma.category.findFirst({
+        where: { id: categoryId, userId },
+      });
+      if (!category) {
+        return jsonError("Category does not exist.", 400);
+      }
     }
 
     const item = await prisma.recurringExpense.create({
       data: {
         amountMinor: toMinorUnits(amount),
         description,
-        categoryId,
+        type,
+        categoryId: type === "EXPENSE" ? categoryId! : null,
         dayOfMonth,
+        startDate: parseOptionalDate(startDate),
+        endDate: parseOptionalDate(endDate),
         userId,
         active: true,
         lastGeneratedMonth: null,
@@ -85,7 +121,7 @@ export async function POST(request: NextRequest) {
     return serverError(
       "POST /api/recurring",
       error,
-      "Failed to create recurring expense.",
+      "Failed to create recurring item.",
     );
   }
 }

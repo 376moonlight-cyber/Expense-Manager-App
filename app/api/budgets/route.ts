@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     await generateRecurringExpensesForMonth(userId, month);
 
     const categories = await prisma.category.findMany({
+      where: { userId },
       orderBy: { name: "asc" },
       include: {
         budgets: {

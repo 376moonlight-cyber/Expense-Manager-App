@@ -18,6 +18,16 @@ export type CurrencyCode = (typeof CURRENCIES)[number];
 
 export const DEFAULT_BASE_CURRENCY: CurrencyCode = "PKR";
 
+/** Coerce an API/UI string into a known currency code (falls back to default). */
+export function normalizeCurrencyCode(
+  value: string | null | undefined,
+): CurrencyCode {
+  const code = (value ?? "").trim().toUpperCase();
+  return (CURRENCIES as readonly string[]).includes(code)
+    ? (code as CurrencyCode)
+    : DEFAULT_BASE_CURRENCY;
+}
+
 export const currencyCodeSchema = z
   .string()
   .trim()

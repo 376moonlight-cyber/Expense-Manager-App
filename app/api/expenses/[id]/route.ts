@@ -10,10 +10,15 @@ import {
   getOrCreateSettings,
   resolveExchangeRate,
 } from "@/lib/currency";
-import { expenseBodySchema, toMinorUnits } from "@/lib/expenses";
+import {
+  expenseBodySchema,
+  normalizeTags,
+  toMinorUnits,
+} from "@/lib/expenses";
 import { prisma } from "@/lib/prisma";
 import { deleteReceiptFile } from "@/lib/receipts";
 import { requireUserId } from "@/lib/session";
+import { findUserWallet } from "@/lib/wallets";
 
 const expenseInclude = {
   category: true,
@@ -25,6 +30,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 function serializeExpense<
   T extends {
     amountMinor: number;
+    tags: unknown;
     receipt?: {
       id: string;
       expenseId: string;
@@ -36,10 +42,11 @@ function serializeExpense<
     } | null;
   },
 >(expense: T) {
-  const { receipt, ...rest } = expense;
+  const { receipt, tags, ...rest } = expense;
   return {
     ...rest,
     amount: expense.amountMinor,
+    tags: normalizeTags(tags),
     receipt: receipt
       ? {
           id: receipt.id,
@@ -80,13 +87,30 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       return validationError(parsed.error);
     }
 
-    const { amount, currency, description, date, categoryId } = parsed.data;
+    const {
+      amount,
+      currency,
+      description,
+      date,
+      categoryId,
+      paymentMethod,
+      notes,
+      tags,
+      walletId,
+    } = parsed.data;
 
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, userId },
     });
     if (!category) {
       return jsonError("Category does not exist.", 400);
+    }
+
+    if (walletId) {
+      const wallet = await findUserWallet(userId, walletId);
+      if (!wallet) {
+        return jsonError("Wallet does not exist.", 400);
+      }
     }
 
     const settings = await getOrCreateSettings(userId);
@@ -113,6 +137,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
         description,
         date: new Date(date),
         categoryId,
+        paymentMethod,
+        notes,
+        tags,
+        walletId,
       },
       include: expenseInclude,
     });

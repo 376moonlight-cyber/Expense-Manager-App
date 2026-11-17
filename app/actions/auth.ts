@@ -4,6 +4,7 @@ import { hash } from "bcryptjs";
 import { AuthError } from "next-auth";
 import { signIn, signOut } from "@/auth";
 import { loginSchema, signupSchema } from "@/lib/auth-validation";
+import { ensureDefaultCategories } from "@/lib/categories";
 import { formatZodError } from "@/lib/expenses";
 import { prisma } from "@/lib/prisma";
 
@@ -36,13 +37,14 @@ export async function signup(
   }
 
   const passwordHash = await hash(parsed.data.password, 12);
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       name: parsed.data.name,
       email,
       passwordHash,
     },
   });
+  await ensureDefaultCategories(user.id);
 
   try {
     await signIn("credentials", {

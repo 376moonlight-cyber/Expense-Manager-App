@@ -2,9 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { BudgetRow } from "@/lib/budgets";
-import { DEFAULT_BASE_CURRENCY } from "@/lib/currency";
+import {
+  DEFAULT_BASE_CURRENCY,
+  normalizeCurrencyCode,
+} from "@/lib/currency";
 import { formatMoney } from "@/lib/money";
+import { SurfaceCard } from "@/components/AppShell";
 import { BudgetProgressBar } from "@/components/BudgetProgressBar";
+import { Button } from "@/components/ui/Button";
+import { CategoryIcon } from "@/components/ui/CategoryIcon";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Input } from "@/components/ui/Input";
+import { ListSkeleton } from "@/components/ui/Skeleton";
+import { toast } from "@/components/ui/Toast";
 
 type BudgetsPanelProps = {
   month: string;
@@ -47,7 +57,7 @@ export function BudgetsPanel({
           baseCurrency?: string;
         };
         if (settings.baseCurrency) {
-          setBaseCurrency(settings.baseCurrency.toUpperCase());
+          setBaseCurrency(normalizeCurrencyCode(settings.baseCurrency));
         }
       }
     } catch (err) {
@@ -107,8 +117,12 @@ export function BudgetsPanel({
 
       cancelEdit();
       await load();
+      toast.success("Budget limit saved.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save budget.");
+      const message =
+        err instanceof Error ? err.message : "Failed to save budget.";
+      setError(message);
+      toast.error(message);
     } finally {
       setSavingId(null);
     }
@@ -116,105 +130,107 @@ export function BudgetsPanel({
 
   return (
     <section className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight text-zinc-900">
-            Budgets
-          </h2>
-          <p className="text-sm text-zinc-500">
-            Monthly limits per category for {month}
-          </p>
-        </div>
-        {showMonthPicker && onMonthChange ? (
-          <label className="flex flex-col gap-1 text-sm text-zinc-600">
-            Month
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => onMonthChange(e.target.value)}
-              className="h-10 rounded-xl border border-zinc-300 bg-white px-3 text-zinc-900 outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-            />
-          </label>
-        ) : null}
-      </div>
+      {showMonthPicker && onMonthChange ? (
+        <label className="flex flex-col gap-1 text-sm text-muted-foreground">
+          Month
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => onMonthChange(e.target.value)}
+            className="min-h-11 rounded-xl border border-border bg-card px-3 text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </label>
+      ) : null}
 
       {error ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </p>
       ) : null}
 
       {loading ? (
-        <p className="rounded-xl border border-zinc-200 bg-white px-4 py-8 text-center text-sm text-zinc-500 shadow-sm">
-          Loading budgets…
-        </p>
+        <ListSkeleton rows={6} />
+      ) : budgets.length === 0 ? (
+        <EmptyState
+          title="No categories yet."
+          description="Add categories in Settings, then set monthly limits here."
+          actionHref="/settings"
+          actionLabel="Go to Settings"
+        />
       ) : (
-        <ul className="divide-y divide-zinc-100 rounded-2xl border border-zinc-200 bg-white shadow-sm">
+        <ul className="grid gap-3 sm:grid-cols-2">
           {budgets.map((row) => {
             const hasLimit = row.monthlyLimit != null && row.monthlyLimit > 0;
             const isEditing = editingId === row.categoryId;
 
             return (
-              <li key={row.categoryId} className="space-y-2 px-4 py-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-medium text-zinc-900">
-                    {row.categoryName}
-                  </span>
-                  <span className="text-sm tabular-nums text-zinc-600">
-                    {formatMoney(row.spent, baseCurrency)}
-                    {" / "}
-                    {hasLimit
-                      ? formatMoney(row.monthlyLimit!, baseCurrency)
-                      : "no limit"}
-                  </span>
-                </div>
-
-                {hasLimit ? (
-                  <BudgetProgressBar
-                    spent={row.spent}
-                    limit={row.monthlyLimit!}
-                  />
-                ) : (
-                  <div className="h-2.5 w-full rounded-full bg-zinc-100" />
-                )}
-
-                {isEditing ? (
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      placeholder="Limit (blank to remove)"
-                      className="h-10 w-44 rounded-xl border border-zinc-300 px-3 text-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => void saveLimit(row.categoryId)}
-                      disabled={savingId === row.categoryId}
-                      className="inline-flex h-10 items-center rounded-xl bg-teal-600 px-3 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
-                    >
-                      {savingId === row.categoryId ? "Saving…" : "Save"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={cancelEdit}
-                      className="inline-flex h-10 items-center rounded-xl px-3 text-sm font-medium text-zinc-600 hover:bg-zinc-100"
-                    >
-                      Cancel
-                    </button>
+              <li key={row.categoryId}>
+                <SurfaceCard className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <CategoryIcon name={row.categoryName} size="md" />
+                      <span className="font-medium text-foreground">
+                        {row.categoryName}
+                      </span>
+                    </div>
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      {formatMoney(row.spent, baseCurrency)}
+                      {" / "}
+                      {hasLimit
+                        ? formatMoney(row.monthlyLimit!, baseCurrency)
+                        : "no limit"}
+                    </span>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => startEdit(row)}
-                    className="text-sm font-medium text-teal-700 underline-offset-2 hover:underline"
-                  >
-                    {hasLimit ? "Edit limit" : "Set limit"}
-                  </button>
-                )}
+
+                  {hasLimit ? (
+                    <BudgetProgressBar
+                      spent={row.spent}
+                      limit={row.monthlyLimit!}
+                    />
+                  ) : (
+                    <div className="h-2.5 w-full rounded-full bg-muted" />
+                  )}
+
+                  {isEditing ? (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        placeholder="Limit (blank to remove)"
+                        className="w-44"
+                        autoFocus
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => void saveLimit(row.categoryId)}
+                        disabled={savingId === row.categoryId}
+                      >
+                        {savingId === row.categoryId ? "Saving…" : "Save"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={cancelEdit}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto min-h-0 px-0 text-primary hover:bg-transparent"
+                      onClick={() => startEdit(row)}
+                    >
+                      {hasLimit ? "Edit limit" : "Set limit"}
+                    </Button>
+                  )}
+                </SurfaceCard>
               </li>
             );
           })}

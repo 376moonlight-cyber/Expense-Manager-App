@@ -4,7 +4,9 @@ import { authConfig } from "@/auth.config";
 
 const { auth } = NextAuth(authConfig);
 
-const publicPaths = new Set(["/login", "/signup"]);
+const publicPaths = new Set(["/login", "/signup", "/about"]);
+/** Auth entry pages only — logged-in users are sent home from these. */
+const authEntryPaths = new Set(["/login", "/signup"]);
 
 export const proxy = auth((request) => {
   const { pathname } = request.nextUrl;
@@ -26,7 +28,7 @@ export const proxy = auth((request) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  if (isLoggedIn && isPublic) {
+  if (isLoggedIn && authEntryPaths.has(pathname)) {
     return NextResponse.redirect(new URL("/", request.nextUrl.origin));
   }
 

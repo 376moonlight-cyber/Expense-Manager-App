@@ -6,7 +6,7 @@ import {
   validationError,
 } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
-import { recurringActiveSchema } from "@/lib/recurring";
+import { nextDueDate, recurringActiveSchema } from "@/lib/recurring";
 import { requireUserId } from "@/lib/session";
 
 const recurringInclude = {
@@ -15,8 +15,21 @@ const recurringInclude = {
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-function serializeRecurring<T extends { amountMinor: number }>(item: T) {
-  return { ...item, amount: item.amountMinor };
+function serializeRecurring<
+  T extends {
+    amountMinor: number;
+    active: boolean;
+    dayOfMonth: number;
+    startDate: Date | null;
+    endDate: Date | null;
+    lastGeneratedMonth: string | null;
+  },
+>(item: T) {
+  return {
+    ...item,
+    amount: item.amountMinor,
+    nextDueDate: nextDueDate(item),
+  };
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
@@ -31,7 +44,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       where: { id, userId },
     });
     if (!existing) {
-      return jsonError("Recurring expense not found.", 404);
+      return jsonError("Recurring item not found.", 404);
     }
 
     let body: unknown;
@@ -57,7 +70,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return serverError(
       "PATCH /api/recurring/[id]",
       error,
-      "Failed to update recurring expense.",
+      "Failed to update recurring item.",
     );
   }
 }
@@ -74,7 +87,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
       where: { id, userId },
     });
     if (!existing) {
-      return jsonError("Recurring expense not found.", 404);
+      return jsonError("Recurring item not found.", 404);
     }
 
     await prisma.recurringExpense.delete({ where: { id } });
@@ -84,7 +97,7 @@ export async function DELETE(_request: NextRequest, context: RouteContext) {
     return serverError(
       "DELETE /api/recurring/[id]",
       error,
-      "Failed to delete recurring expense.",
+      "Failed to delete recurring item.",
     );
   }
 }

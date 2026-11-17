@@ -1,26 +1,217 @@
 @import "tailwindcss";
 
+/* Class-based dark mode (html.dark) — ThemeProvider + localStorage */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand — exact palette */
+  --primary: #0f766e;
+  --primary-hover: #0d9488;
+  --primary-muted: #ccfbf1;
+  --primary-foreground: #ffffff;
+
+  --accent: #f59e0b;
+  --accent-muted: #fef3c7;
+  --accent-foreground: #92400e;
+
+  --income: #16a34a;
+  --income-muted: #dcfce7;
+  --expense: #ef4444;
+  --expense-muted: #fee2e2;
+
+  /* Surfaces */
+  --background: #f6f8fa;
+  --surface: #f6f8fa;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --muted: #eef2f6;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --ring: rgb(15 118 110 / 0.28);
+
+  /* Elevation */
+  --elevation-card: 0 1px 2px rgb(15 23 42 / 0.04),
+    0 1px 3px rgb(15 23 42 / 0.06);
+  --elevation-soft: 0 8px 24px rgb(15 23 42 / 0.08);
+}
+
+.dark {
+  --primary: #2dd4bf;
+  --primary-hover: #5eead4;
+  --primary-muted: rgb(45 212 191 / 0.15);
+  --primary-foreground: #042f2e;
+
+  --accent: #fbbf24;
+  --accent-muted: rgb(251 191 36 / 0.15);
+  --accent-foreground: #fde68a;
+
+  --income: #4ade80;
+  --income-muted: rgb(74 222 128 / 0.15);
+  --expense: #f87171;
+  --expense-muted: rgb(248 113 113 / 0.15);
+
+  --background: #0f172a;
+  --surface: #0f172a;
+  --foreground: #e2e8f0;
+  --card: #1e293b;
+  --card-foreground: #e2e8f0;
+  --muted: #334155;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+  --ring: rgb(45 212 191 / 0.35);
+
+  --elevation-card: 0 1px 2px rgb(0 0 0 / 0.25);
+  --elevation-soft: 0 12px 32px rgb(0 0 0 / 0.35);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-muted: var(--primary-muted);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-income: var(--income);
+  --color-income-muted: var(--income-muted);
+  --color-expense: var(--expense);
+  --color-expense-muted: var(--expense-muted);
+
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+
+  --shadow-card: var(--elevation-card);
+  --shadow-soft: var(--elevation-soft);
+  --radius-2xl: 1rem;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-heading {
+  font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer utilities {
+  .shadow-card {
+    box-shadow: var(--elevation-card);
+  }
+
+  .shadow-soft {
+    box-shadow: var(--elevation-soft);
+  }
+
+  .animate-page-enter {
+    animation: page-enter 280ms ease-out both;
+  }
+
+  .animate-fade-in {
+    animation: fade-in 180ms ease-out both;
+  }
+
+  .animate-fade-slide-in {
+    animation: fade-slide-in 220ms ease-out both;
+  }
+
+  .card-lift {
+    transition: transform 180ms ease, box-shadow 180ms ease;
+  }
+
+  .card-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  .progress-fill {
+    transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+:where(a, button, input, select, textarea, summary, [role="button"]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-enter,
+  .animate-fade-in,
+  .animate-fade-slide-in,
+  .card-lift {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .progress-fill {
+    transition: none !important;
+  }
+
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+
+html,
+body {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
 }

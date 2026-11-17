@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   expenseBodySchema,
   formatZodError,
+  eachDayKeyInMonth,
   lastNMonths,
   monthDateRange,
+  parseTags,
+  previousMonthKey,
   monthQuerySchema,
 } from "./expenses";
 
@@ -21,7 +24,33 @@ describe("expenseBodySchema", () => {
     if (result.success) {
       expect(result.data.description).toBe("Lunch");
       expect(result.data.currency).toBe("PKR");
+      expect(result.data.paymentMethod).toBe("Cash");
+      expect(result.data.notes).toBe("");
+      expect(result.data.tags).toEqual([]);
     }
+  });
+
+  it("accepts payment method, notes, and tags", () => {
+    const result = expenseBodySchema.safeParse({
+      ...valid,
+      paymentMethod: "JazzCash",
+      notes: " Paid at cafe ",
+      tags: "food, lunch, Food",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.paymentMethod).toBe("JazzCash");
+      expect(result.data.notes).toBe("Paid at cafe");
+      expect(result.data.tags).toEqual(["food", "lunch"]);
+    }
+  });
+
+  it("rejects invalid payment methods", () => {
+    const result = expenseBodySchema.safeParse({
+      ...valid,
+      paymentMethod: "Crypto",
+    });
+    expect(result.success).toBe(false);
   });
 
   it("accepts an explicit currency", () => {
@@ -118,5 +147,31 @@ describe("lastNMonths", () => {
       "2026-02",
       "2026-03",
     ]);
+  });
+});
+
+describe("previousMonthKey", () => {
+  it("returns the prior YYYY-MM", () => {
+    expect(previousMonthKey("2026-03")).toBe("2026-02");
+    expect(previousMonthKey("2026-01")).toBe("2025-12");
+  });
+
+  it("returns null for invalid input", () => {
+    expect(previousMonthKey("bad")).toBeNull();
+  });
+});
+
+describe("eachDayKeyInMonth", () => {
+  it("lists every UTC day in the month", () => {
+    const days = eachDayKeyInMonth("2026-02");
+    expect(days[0]).toBe("2026-02-01");
+    expect(days.at(-1)).toBe("2026-02-28");
+    expect(days).toHaveLength(28);
+  });
+});
+
+describe("parseTags", () => {
+  it("trims, drops empties, and dedupes case-insensitively", () => {
+    expect(parseTags(" food, , Lunch, FOOD ")).toEqual(["food", "Lunch"]);
   });
 });

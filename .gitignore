@@ -32,8 +32,10 @@
 /prisma/*.db-journal
 /prisma/*.db-shm
 /prisma/*.db-wal
+shadow.db
 
 # debug
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

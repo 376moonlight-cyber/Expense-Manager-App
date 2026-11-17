@@ -15,14 +15,15 @@ export function BudgetProgressBar({ spent, limit }: BudgetProgressBarProps) {
 
   return (
     <div
-      className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200"
+      className="h-2.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700"
       role="progressbar"
       aria-valuenow={Math.round(widthPct)}
       aria-valuemin={0}
       aria-valuemax={100}
+      aria-label="Budget progress"
     >
       <div
-        className={`h-full rounded-full transition-[width] duration-300 ${barColor(ratio)}`}
+        className={`progress-fill h-full rounded-full ${barColor(ratio)}`}
         style={{ width: `${widthPct}%` }}
       />
     </div>

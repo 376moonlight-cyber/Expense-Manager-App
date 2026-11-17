@@ -14,11 +14,13 @@ import {
 import {
   expenseBodySchema,
   monthDateRange,
+  normalizeTags,
   toMinorUnits,
 } from "@/lib/expenses";
 import { prisma } from "@/lib/prisma";
 import { generateRecurringExpensesForMonth } from "@/lib/recurring";
 import { requireUserId } from "@/lib/session";
+import { findUserWallet } from "@/lib/wallets";
 
 const expenseInclude = {
   category: true,
@@ -29,6 +31,7 @@ const expenseInclude = {
 function serializeExpense<
   T extends {
     amountMinor: number;
+    tags: unknown;
     receipt?: {
       id: string;
       expenseId: string;
@@ -40,10 +43,11 @@ function serializeExpense<
     } | null;
   },
 >(expense: T) {
-  const { receipt, ...rest } = expense;
+  const { receipt, tags, ...rest } = expense;
   return {
     ...rest,
     amount: expense.amountMinor,
+    tags: normalizeTags(tags),
     receipt: receipt
       ? {
           id: receipt.id,
@@ -66,6 +70,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = request.nextUrl;
     const month = searchParams.get("month");
     const categoryId = searchParams.get("categoryId");
+    const paymentMethod = searchParams.get("paymentMethod");
+    const tag = searchParams.get("tag")?.trim().toLowerCase() ?? "";
+    const q = searchParams.get("q")?.trim() ?? "";
+    const dateFrom = searchParams.get("from");
+    const dateTo = searchParams.get("to");
+    const minAmount = searchParams.get("minAmount");
+    const maxAmount = searchParams.get("maxAmount");
 
     const where: Prisma.ExpenseWhereInput = { userId };
 
@@ -79,8 +90,64 @@ export async function GET(request: NextRequest) {
       where.date = { gte: range.gte, lt: range.lt };
     }
 
+    if (dateFrom || dateTo) {
+      const dateFilter: Prisma.DateTimeFilter = {
+        ...(typeof where.date === "object" && where.date !== null
+          ? (where.date as Prisma.DateTimeFilter)
+          : {}),
+      };
+      if (dateFrom) {
+        const from = new Date(dateFrom);
+        if (Number.isNaN(from.getTime())) {
+          return jsonError("Invalid from date.", 400);
+        }
+        dateFilter.gte = from;
+      }
+      if (dateTo) {
+        const to = new Date(dateTo);
+        if (Number.isNaN(to.getTime())) {
+          return jsonError("Invalid to date.", 400);
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateTo)) {
+          to.setUTCHours(23, 59, 59, 999);
+        }
+        dateFilter.lte = to;
+      }
+      where.date = dateFilter;
+    }
+
     if (categoryId) {
       where.categoryId = categoryId;
+    }
+
+    if (paymentMethod) {
+      where.paymentMethod = paymentMethod;
+    }
+
+    if (q) {
+      where.description = { contains: q };
+    }
+
+    if (minAmount != null && minAmount !== "") {
+      const min = Number(minAmount);
+      if (!Number.isFinite(min) || min < 0) {
+        return jsonError("Invalid minAmount.", 400);
+      }
+      where.convertedAmountMinor = {
+        ...((where.convertedAmountMinor as Prisma.IntFilter) ?? {}),
+        gte: toMinorUnits(min),
+      };
+    }
+
+    if (maxAmount != null && maxAmount !== "") {
+      const max = Number(maxAmount);
+      if (!Number.isFinite(max) || max < 0) {
+        return jsonError("Invalid maxAmount.", 400);
+      }
+      where.convertedAmountMinor = {
+        ...((where.convertedAmountMinor as Prisma.IntFilter) ?? {}),
+        lte: toMinorUnits(max),
+      };
     }
 
     const expenses = await prisma.expense.findMany({
@@ -89,7 +156,14 @@ export async function GET(request: NextRequest) {
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
     });
 
-    return NextResponse.json(expenses.map(serializeExpense));
+    const serialized = expenses.map(serializeExpense);
+    const filtered = tag
+      ? serialized.filter((expense) =>
+          expense.tags.some((t) => t.toLowerCase() === tag),
+        )
+      : serialized;
+
+    return NextResponse.json(filtered);
   } catch (error) {
     return serverError("GET /api/expenses", error, "Failed to list expenses.");
   }
@@ -113,13 +187,30 @@ export async function POST(request: NextRequest) {
       return validationError(parsed.error);
     }
 
-    const { amount, currency, description, date, categoryId } = parsed.data;
+    const {
+      amount,
+      currency,
+      description,
+      date,
+      categoryId,
+      paymentMethod,
+      notes,
+      tags,
+      walletId,
+    } = parsed.data;
 
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, userId },
     });
     if (!category) {
       return jsonError("Category does not exist.", 400);
+    }
+
+    if (walletId) {
+      const wallet = await findUserWallet(userId, walletId);
+      if (!wallet) {
+        return jsonError("Wallet does not exist.", 400);
+      }
     }
 
     const settings = await getOrCreateSettings(userId);
@@ -146,6 +237,10 @@ export async function POST(request: NextRequest) {
         date: new Date(date),
         categoryId,
         userId,
+        paymentMethod,
+        notes,
+        tags,
+        walletId,
       },
       include: expenseInclude,
     });
