@@ -1,0 +1,126 @@
+// Prisma schema for personal expense tracker (SQLite — local development)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  expenses          Expense[]
+  budgets           Budget[]
+  setting           Setting?
+  recurringExpenses RecurringExpense[]
+}
+
+/// Shared across all users — seeded once, referenced by everyone.
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  expenses          Expense[]
+  budgets           Budget[]
+  recurringExpenses RecurringExpense[]
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  // Amount in smallest currency unit (cents/paisa) — never floats
+  amountMinor Int
+  /// ISO-like currency code for the original amount (e.g. PKR, USD)
+  currency    String   @default("PKR")
+  /// amountMinor converted into the user's base currency at save time
+  convertedAmountMinor Int @default(0)
+  /// Units of base currency per 1 unit of `currency` used when saving
+  exchangeRateUsed Float @default(1)
+  description String
+  date        DateTime
+  categoryId  String
+  userId      String
+  /// Set when this expense was auto-generated from a recurring template
+  recurringExpenseId String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category         Category          @relation(fields: [categoryId], references: [id])
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  receipt          Receipt?
+  recurringExpense RecurringExpense? @relation(fields: [recurringExpenseId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([userId, date])
+  @@index([categoryId])
+  @@index([recurringExpenseId, date])
+}
+
+model Receipt {
+  id          String   @id @default(cuid())
+  expenseId   String   @unique
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  /// Relative path under private uploads/ (UUID file name, never the original)
+  storagePath String
+  createdAt   DateTime @default(now())
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+}
+
+model RecurringExpense {
+  id                 String  @id @default(cuid())
+  amountMinor        Int
+  description        String
+  categoryId         String
+  userId             String
+  /// Charge day each month (1–28 to avoid end-of-month edge cases)
+  dayOfMonth         Int
+  active             Boolean @default(true)
+  /// Last YYYY-MM for which an expense was generated (null = never)
+  lastGeneratedMonth String?
+
+  category Category  @relation(fields: [categoryId], references: [id])
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([userId, active])
+}
+
+model Budget {
+  id                String @id @default(cuid())
+  userId            String
+  categoryId        String
+  // Monthly limit in smallest currency unit (cents/paisa)
+  monthlyLimitMinor Int
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  // Each user has at most one budget per shared category
+  @@unique([userId, categoryId])
+  @@index([userId])
+}
+
+/// Per-user base currency and manual exchange rates.
+model Setting {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  baseCurrency  String   @default("PKR")
+  /// Map of currency code → base-currency units per 1 unit (e.g. {"USD": 280})
+  exchangeRates Json     @default("{}")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
