@@ -1,10 +1,10 @@
-# PaisaPal Design System
+# Expense Manager App Design System
 
 Visual language for the personal finance app: clean, calm, trustworthy, lightly playful. Prefer `components/ui` and shared chrome over one-off styles.
 
 ## Brand
 
-- **Name:** PaisaPal
+- **Name:** Expense Manager App
 - **Primary:** deep emerald/teal `#0F766E`
 - **Accent:** warm amber `#F59E0B` (sparingly)
 - **Income:** `#16A34A` · **Expense:** `#EF4444`

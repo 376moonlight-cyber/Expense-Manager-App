@@ -17,7 +17,10 @@ import {
   type AppIcon,
 } from "@/components/Icons";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { APP_NAME, resolveDeveloperName } from "@/lib/branding";
 import { cn } from "@/lib/cn";
+
+const DEVELOPER_NAME = resolveDeveloperName();
 
 type NavItem = {
   href: string;
@@ -146,7 +149,7 @@ export function AppShell({
             />
             <div className="min-w-0">
               <p className="font-heading text-xs font-semibold tracking-wide text-primary">
-                PaisaPal
+                {APP_NAME}
               </p>
               <p className="truncate text-base font-semibold tracking-tight">
                 {title ?? "Home"}
@@ -179,7 +182,7 @@ export function AppShell({
             />
             <div className="min-w-0">
               <p className="font-heading text-xs font-semibold tracking-wide text-primary">
-                PaisaPal
+                {APP_NAME}
               </p>
               <p className="mt-0.5 font-heading text-lg font-semibold tracking-tight">
                 Finance
@@ -256,7 +259,7 @@ export function AppShell({
                     ) : null}
                   </>
                 ) : (
-                  <h1 className="sr-only">PaisaPal</h1>
+                  <h1 className="sr-only">{APP_NAME}</h1>
                 )}
               </div>
               {actions ? (
@@ -275,12 +278,18 @@ export function AppShell({
           >
             {children}
             <footer className="mt-10 border-t border-border pt-4 text-center text-xs text-muted-foreground md:text-left">
-              <Link
-                href="/about"
-                className="font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-primary hover:underline"
-              >
-                About
-              </Link>
+              <p className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 md:justify-start">
+                <span>Developed by {DEVELOPER_NAME}</span>
+                <span aria-hidden className="text-border">
+                  ·
+                </span>
+                <Link
+                  href="/about"
+                  className="font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-primary hover:underline"
+                >
+                  About
+                </Link>
+              </p>
             </footer>
           </main>
         </div>

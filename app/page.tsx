@@ -717,12 +717,12 @@ export default function Home() {
         {loading ? (
           <SummaryCardsSkeleton count={3} />
         ) : (
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-12">
-            <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary via-primary to-emerald-600 p-6 text-primary-foreground shadow-card sm:col-span-2 lg:col-span-7">
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="relative overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-br from-primary via-primary to-emerald-600 p-6 text-primary-foreground shadow-card sm:col-span-2 lg:col-span-1">
               <p className="text-sm font-medium text-primary-foreground/85">
                 Balance · {formatMonthLabel(month)}
               </p>
-              <p className="mt-2 font-heading text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
+              <p className="mt-2 min-w-0 break-words font-heading text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
                 <CountUpMoney
                   valueMinor={monthBalanceMinor}
                   currency={baseCurrency}
@@ -739,32 +739,32 @@ export default function Home() {
                 </p>
               ) : null}
             </div>
-            <SurfaceCard className="flex flex-col justify-between px-5 py-5 lg:col-span-2">
+            <SurfaceCard className="flex min-w-0 flex-col justify-between px-5 py-5">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-medium text-muted-foreground">
                   Income
                 </p>
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-income-muted text-income">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-income-muted text-income">
                   <IconArrowUpRight className="h-4 w-4" />
                 </span>
               </div>
-              <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums text-income">
+              <p className="mt-2 min-w-0 break-words text-xl font-semibold tracking-tight tabular-nums text-income sm:text-2xl">
                 <CountUpMoney
                   valueMinor={monthIncomeTotalMinor}
                   currency={baseCurrency}
                 />
               </p>
             </SurfaceCard>
-            <SurfaceCard className="flex flex-col justify-between px-5 py-5 lg:col-span-3">
+            <SurfaceCard className="flex min-w-0 flex-col justify-between px-5 py-5">
               <div className="flex items-start justify-between gap-2">
                 <p className="text-sm font-medium text-muted-foreground">
                   Expenses
                 </p>
-                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-expense-muted text-expense">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-expense-muted text-expense">
                   <IconArrowDownRight className="h-4 w-4" />
                 </span>
               </div>
-              <p className="mt-2 text-2xl font-semibold tracking-tight tabular-nums text-expense">
+              <p className="mt-2 min-w-0 break-words text-xl font-semibold tracking-tight tabular-nums text-expense sm:text-2xl">
                 <CountUpMoney
                   valueMinor={monthExpenseTotalMinor}
                   currency={baseCurrency}

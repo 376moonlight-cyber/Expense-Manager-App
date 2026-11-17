@@ -13,14 +13,13 @@ import {
 } from "@/components/Icons";
 import { CopyrightYear } from "@/components/CopyrightYear";
 import { Card, CardBody, CardDescription, CardTitle } from "@/components/ui/Card";
+import { APP_NAME, APP_TAGLINE } from "@/lib/branding";
 import { cn } from "@/lib/cn";
-
-const APP_NAME = "PaisaPal";
-const TAGLINE = "Know where your money goes.";
 
 type AboutViewProps = {
   version: string;
   supportEmail: string;
+  developerName: string;
   /** Extra top spacing when embedded in AppShell (title already shown). */
   compactHero?: boolean;
 };
@@ -114,6 +113,7 @@ const FAQ = [
 export function AboutView({
   version,
   supportEmail,
+  developerName,
   compactHero = false,
 }: AboutViewProps) {
   return (
@@ -144,7 +144,11 @@ export function AboutView({
             <h2 className="mt-1 font-heading text-2xl font-semibold tracking-tight text-foreground">
               About {APP_NAME}
             </h2>
-            <p className="mt-1 text-sm text-muted-foreground">{TAGLINE}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{APP_TAGLINE}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Developed by{" "}
+              <span className="font-medium text-foreground">{developerName}</span>
+            </p>
             <p className="mt-3 inline-flex items-center rounded-lg bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
               Version {version}
             </p>
@@ -292,6 +296,7 @@ export function AboutView({
         <p>
           © <CopyrightYear /> {APP_NAME}
         </p>
+        <p className="mt-1">Developed by {developerName}</p>
         <p className="mt-2">
           <Link
             href="/"

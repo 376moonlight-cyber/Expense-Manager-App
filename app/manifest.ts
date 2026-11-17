@@ -1,9 +1,10 @@
 import type { MetadataRoute } from "next";
+import { APP_NAME } from "@/lib/branding";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "PaisaPal",
-    short_name: "PaisaPal",
+    name: APP_NAME,
+    short_name: "Expense Manager",
     description: "Track personal expenses by month and category",
     start_url: "/",
     display: "standalone",

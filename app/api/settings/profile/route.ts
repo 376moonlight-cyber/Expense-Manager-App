@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   invalidJsonError,
-  jsonError,
   serverError,
   validationError,
 } from "@/lib/api";
@@ -32,10 +31,6 @@ export async function PUT(request: NextRequest) {
       data: { name: parsed.data.name },
       select: { name: true, email: true },
     });
-
-    if (!user) {
-      return jsonError("User not found.", 404);
-    }
 
     return NextResponse.json({
       name: user.name ?? "",

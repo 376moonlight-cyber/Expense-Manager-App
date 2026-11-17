@@ -6,21 +6,18 @@ import { AboutView } from "@/components/AboutView";
 import { AppShell } from "@/components/AppShell";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { PageSkeleton } from "@/components/ui/Skeleton";
+import {
+  APP_NAME,
+  resolveDeveloperName,
+  resolveSupportEmail,
+} from "@/lib/branding";
 import packageJson from "@/package.json";
 
 export const metadata: Metadata = {
-  title: "About | PaisaPal",
+  title: `About | ${APP_NAME}`,
   description:
-    "Learn what PaisaPal does, how to use it, and how your data is handled.",
+    `Learn what ${APP_NAME} does, how to use it, and how your data is handled.`,
 };
-
-const SUPPORT_EMAIL_FALLBACK = "support@example.com";
-
-function resolveSupportEmail(): string {
-  const raw = process.env.NEXT_PUBLIC_SUPPORT_EMAIL?.trim();
-  if (raw && raw.length > 0) return raw;
-  return SUPPORT_EMAIL_FALLBACK;
-}
 
 async function AboutContent() {
   let isLoggedIn = false;
@@ -33,17 +30,19 @@ async function AboutContent() {
 
   const version = packageJson.version;
   const supportEmail = resolveSupportEmail();
+  const developerName = resolveDeveloperName();
 
   if (isLoggedIn) {
     return (
       <AppShell
         title="About"
-        description="What PaisaPal is and how your data is handled."
+        description={`What ${APP_NAME} is and how your data is handled.`}
         maxWidth="3xl"
       >
         <AboutView
           version={version}
           supportEmail={supportEmail}
+          developerName={developerName}
           compactHero
         />
       </AppShell>
@@ -63,7 +62,7 @@ async function AboutContent() {
               className="h-8 w-8 shrink-0"
             />
             <span className="font-heading text-sm font-semibold tracking-wide text-primary">
-              PaisaPal
+              {APP_NAME}
             </span>
           </Link>
           <div className="flex items-center gap-1 sm:gap-2">
@@ -84,7 +83,11 @@ async function AboutContent() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 sm:py-10 animate-page-enter">
-        <AboutView version={version} supportEmail={supportEmail} />
+        <AboutView
+          version={version}
+          supportEmail={supportEmail}
+          developerName={developerName}
+        />
       </main>
     </div>
   );

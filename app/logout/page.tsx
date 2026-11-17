@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/LogoutButton";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { auth } from "@/auth";
+import { APP_NAME } from "@/lib/branding";
 
 async function LogoutContent() {
   const session = await auth();
@@ -15,7 +16,7 @@ async function LogoutContent() {
       <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-16 animate-page-enter">
         <div>
           <p className="font-heading text-sm font-semibold tracking-wide text-primary">
-            PaisaPal
+            {APP_NAME}
           </p>
           <h1 className="mt-1 font-heading text-2xl font-semibold tracking-tight">
             Log out

@@ -6,6 +6,9 @@ import type { AuthFormState } from "@/app/actions/auth";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardDescription, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
+import { APP_NAME, APP_TAGLINE, resolveDeveloperName } from "@/lib/branding";
+
+const DEVELOPER_NAME = resolveDeveloperName();
 
 type AuthFormProps = {
   mode: "login" | "signup";
@@ -34,10 +37,10 @@ export function AuthForm({ mode, action }: AuthFormProps) {
           />
           <div className="text-left">
             <p className="font-heading text-sm font-semibold tracking-wide text-primary">
-              PaisaPal
+              {APP_NAME}
             </p>
             <p className="text-xs text-muted-foreground">
-              Know where your money goes.
+              {APP_TAGLINE}
             </p>
           </div>
         </div>
@@ -148,6 +151,10 @@ export function AuthForm({ mode, action }: AuthFormProps) {
       </p>
 
       <p className="text-center text-xs text-muted-foreground">
+        Developed by {DEVELOPER_NAME}
+        <span aria-hidden className="mx-1.5 text-border">
+          ·
+        </span>
         <Link
           href="/about"
           className="font-medium underline-offset-2 hover:text-primary hover:underline"

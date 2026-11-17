@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import { ThemeScript } from "@/components/theme/ThemeScript";
 import { AppProviders } from "@/components/ui/Providers";
 import { Toaster } from "@/components/ui/Toast";
+import { APP_NAME } from "@/lib/branding";
 import "./globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -20,13 +21,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "PaisaPal",
+  title: APP_NAME,
   description: "Track personal expenses by month and category",
-  applicationName: "PaisaPal",
+  applicationName: APP_NAME,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "PaisaPal",
+    title: APP_NAME,
   },
   icons: {
     icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
