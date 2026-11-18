@@ -1,16 +1,21 @@
-# Expense Tracker
+# Expense Manager App
 
-A personal expense tracker built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **Prisma**, **SQLite**, **Auth.js (NextAuth)**, and **local receipt uploads**.
+A personal finance app built with **Next.js (App Router)**, **TypeScript**, **Tailwind CSS**, **Prisma**, **SQLite**, **Auth.js (NextAuth)**, and **local receipt uploads**.
 
 You can:
 
-- Sign up / log in (per-user expenses and budgets)
-- Add, edit, and delete expenses (amounts stored as integer minor units / cents)
-- Attach receipt images/PDFs (stored under a private `uploads/` folder)
-- Filter expenses by month and category
-- Set per-category monthly budgets and see progress
-- View spending reports (by category, last 6 months, top expenses) and download CSV
-- Download a full ZIP backup and restore it (merge or replace) from Settings
+- Sign up / log in (per-user data)
+- Track **expenses** (amounts as integer minor units / cents; optional receipt images or PDFs under a private `uploads/` folder)
+- Track **income**
+- Set per-category monthly **budgets** and see progress
+- View **reports** (savings rate, by category, trends, top expenses)
+- Manage **recurring** expenses and income
+- Organize money across **wallets** (including transfers)
+- Save toward **goals**
+- Use **settings** for profile, password, categories, currency, CSV import/export, and ZIP backup/restore
+- Configure **currency settings** (base currency + manual exchange rates)
+- Download a full ZIP **backup** and **restore** it (merge or replace) from Settings
+- Learn about the app on the **About** page
 
 ## Prerequisites
 
@@ -39,7 +44,7 @@ On Windows PowerShell:
 Copy-Item .env.example .env
 ```
 
-See `.env.example` for every variable (`DATABASE_URL` and Auth.js). Generate an auth secret:
+See `.env.example` for every variable (`DATABASE_URL`, Auth.js, optional seed / About contact). Generate an auth secret:
 
 ```bash
 npx auth secret
@@ -55,7 +60,7 @@ npm run db:seed
 
 Seed creates:
 
-- Demo user: `demo@example.com` / `password123` (skip with `SEED_DEMO_USER=false`)
+- Optional demo user: `demo@example.com` (skip with `SEED_DEMO_USER=false`)
 - Per-user starter categories: Food, Transport, Bills, Shopping, Health, Other
 
 Receipt files are written to `uploads/` at the project root (gitignored) the first time you upload one.
@@ -71,9 +76,15 @@ Open [http://localhost:3000](http://localhost:3000). Unauthenticated visitors ar
 Useful routes:
 
 - `/login`, `/signup` — authentication
-- `/` — expenses
+- `/` — expenses (home)
+- `/income` — income
 - `/budgets` — monthly budgets
-- `/reports` — charts and CSV export
+- `/reports` — charts and spending insights
+- `/recurring` — recurring expenses and income
+- `/wallets` — wallets and transfers
+- `/goals` — savings goals
+- `/settings` — profile, password, currency, categories, backup/restore, CSV import/export
+- `/about` — app info (public; also available when signed in)
 
 ## Scripts
 
@@ -84,14 +95,19 @@ Useful routes:
 | `npm run start` | Run the production server |
 | `npm run lint` | ESLint |
 | `npm test` | Run Vitest unit tests |
+| `npm run test:watch` | Vitest in watch mode |
+| `npm run postinstall` | Generate Prisma client after install |
 | `npm run db:migrate` | Create/apply migrations in development |
 | `npm run db:deploy` | Apply pending migrations |
 | `npm run db:seed` | Seed categories (+ optional demo user) |
 | `npm run db:studio` | Open Prisma Studio |
+| `npm run icons` | Regenerate PNG app icons from the logo mark |
 
-## Money handling
+## Money & currency
 
-All money is stored as **integers in the smallest unit** (`amountMinor`, `monthlyLimitMinor`). Decimal amounts from forms are converted with `toMinorUnits` on the server before saving. Display formatting happens in the UI via `formatMoney` / `formatMinorUnits`.
+All money is stored as **integers in the smallest unit** (`amountMinor`, `monthlyLimitMinor`, and similar fields). Decimal amounts from forms are converted with `toMinorUnits` on the server before saving. Display formatting happens in the UI via `formatMoney` / `formatMinorUnits`.
+
+In **Settings → Currency settings**, choose a base currency (default **PKR**) and enter manual exchange rates (for example, `1 USD = 280 PKR`). Totals, budgets, and reports use the base currency. Supported codes include PKR, USD, EUR, GBP, AED, INR, SAR, CAD, and AUD.
 
 ## Backup & restore
 
@@ -103,8 +119,8 @@ Use **Settings → Backup → Download backup**. The server builds:
 
 ```
 expense-tracker-backup-YYYY-MM-DD.zip
-├── data.json          # format version, createdAt, settings, categories,
-│                      # expenses, incomes, budgets, recurring items
+├── data.json          # format version, createdAt, settings (base currency + rates),
+│                      # categories, expenses, incomes, budgets, recurring items
 └── receipts/          # JPEG, PNG, or PDF files referenced by expenses
 ```
 
@@ -119,4 +135,4 @@ After a successful preview you can:
 - **Merge** — keep current data; add missing categories (by name), budgets, expenses, income, and recurring items
 - **Replace** — delete current categories/expenses/income/budgets/recurring/receipts and load the backup (requires typing `RESTORE`)
 
-Restore runs in a database transaction. Restored rows always use the logged-in user’s id; ids from the file are remapped and never trusted as `userId`.
+Restore runs in a database transaction. Restored rows always use the logged-in user’s id; ids from the file are remapped and never trusted as `userId`. Wallets and goals are not part of the ZIP backup format and are left as-is in the database.
