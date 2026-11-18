@@ -37,6 +37,9 @@ type BackupPreview = {
   budgets: number;
   receipts: number;
   recurringItems: number;
+  wallets: number;
+  transfers: number;
+  goals: number;
   createdAt: string;
   formatVersion: number;
 };
@@ -526,6 +529,9 @@ export default function SettingsPage() {
           budgets: number;
           receipts: number;
           recurringItems: number;
+          wallets: number;
+          transfers: number;
+          goals: number;
         };
       } | null;
       if (!res.ok) {
@@ -534,7 +540,7 @@ export default function SettingsPage() {
 
       const counts = payload?.counts;
       const summary = counts
-        ? `Restored ${counts.categories} categories, ${counts.expenses} expenses, ${counts.incomes} income, ${counts.budgets} budgets, ${counts.recurringItems} recurring, ${counts.receipts} receipts (${mode}).`
+        ? `Restored ${counts.categories} categories, ${counts.expenses} expenses, ${counts.incomes} income, ${counts.budgets} budgets, ${counts.recurringItems} recurring, ${counts.wallets} wallets, ${counts.transfers} transfers, ${counts.goals} goals, ${counts.receipts} receipts (${mode}).`
         : `Backup restored (${mode}).`;
       setRestoreMessage(summary);
       setRestorePreview(null);
@@ -1288,6 +1294,9 @@ export default function SettingsPage() {
                     {restorePreview.incomes} income,{" "}
                     {restorePreview.budgets} budgets,{" "}
                     {restorePreview.recurringItems} recurring,{" "}
+                    {restorePreview.wallets} wallets,{" "}
+                    {restorePreview.transfers} transfers,{" "}
+                    {restorePreview.goals} goals,{" "}
                     {restorePreview.receipts} receipts.
                   </p>
                   <div className="flex flex-wrap gap-3">
@@ -1490,7 +1499,7 @@ export default function SettingsPage() {
                 setReplaceConfirmText("");
               }}
               title="Replace all data?"
-              description="This deletes your current categories, expenses, income, budgets, recurring items, and receipts, then loads the backup. Type RESTORE to confirm."
+              description="This deletes your current categories, expenses, income, budgets, recurring items, wallets, transfers, goals, and receipts, then loads the backup. Type RESTORE to confirm."
               footer={
                 <>
                   <button

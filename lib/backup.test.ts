@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { strToU8, zipSync } from "fflate";
 import {
   BACKUP_FORMAT_VERSION,
+  BACKUP_FORMAT_VERSION_LEGACY,
   backupFileName,
   buildBackupZip,
   isBackupReminderDue,
@@ -42,6 +43,7 @@ function sampleBackup(overrides?: Partial<BackupData>): BackupData {
         notes: "",
         tags: ["food"],
         recurringExpenseId: null,
+        walletId: "wal_cash",
         receipt: {
           fileName: "lunch.jpg",
           mimeType: "image/jpeg",
@@ -61,6 +63,7 @@ function sampleBackup(overrides?: Partial<BackupData>): BackupData {
         description: "November",
         date: "2026-11-01T00:00:00.000Z",
         recurringExpenseId: null,
+        walletId: "wal_bank",
       },
     ],
     budgets: [
@@ -82,6 +85,43 @@ function sampleBackup(overrides?: Partial<BackupData>): BackupData {
         startDate: null,
         endDate: null,
         lastGeneratedMonth: null,
+      },
+    ],
+    wallets: [
+      {
+        id: "wal_cash",
+        name: "Pocket cash",
+        type: "Cash",
+        openingBalanceMinor: 5000,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        id: "wal_bank",
+        name: "Main bank",
+        type: "Bank",
+        openingBalanceMinor: 100000,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      },
+    ],
+    transfers: [
+      {
+        id: "xfer_1",
+        fromWalletId: "wal_bank",
+        toWalletId: "wal_cash",
+        amountMinor: 2000,
+        note: "ATM",
+        date: "2026-11-02T00:00:00.000Z",
+        createdAt: "2026-11-02T00:00:00.000Z",
+      },
+    ],
+    goals: [
+      {
+        id: "goal_1",
+        name: "Emergency fund",
+        targetAmountMinor: 500000,
+        savedAmountMinor: 50000,
+        deadline: "2027-01-01T00:00:00.000Z",
+        createdAt: "2026-01-01T00:00:00.000Z",
       },
     ],
   };
@@ -129,6 +169,9 @@ describe("backup zip round trip", () => {
       budgets: 1,
       receipts: 1,
       recurringItems: 1,
+      wallets: 2,
+      transfers: 1,
+      goals: 1,
       createdAt: data.createdAt,
       formatVersion: BACKUP_FORMAT_VERSION,
     });
@@ -139,12 +182,105 @@ describe("backup zip round trip", () => {
       "Transport",
     ]);
     expect(parsed.data.expenses[0]?.description).toBe("Lunch");
+    expect(parsed.data.expenses[0]?.walletId).toBe("wal_cash");
+    expect(parsed.data.incomes[0]?.walletId).toBe("wal_bank");
+    expect(parsed.data.wallets.map((w) => w.name)).toEqual([
+      "Pocket cash",
+      "Main bank",
+    ]);
+    expect(parsed.data.transfers[0]?.fromWalletId).toBe("wal_bank");
+    expect(parsed.data.transfers[0]?.toWalletId).toBe("wal_cash");
+    expect(parsed.data.goals[0]?.name).toBe("Emergency fund");
     expect(parsed.data.expenses[0]?.receipt?.receiptFile).toBe(
       "receipts/lunch.jpg",
     );
     expect(Array.from(parsed.receipts.get("receipts/lunch.jpg") ?? [])).toEqual(
       Array.from(jpegBytes),
     );
+  });
+});
+
+describe("legacy format version 1 backup", () => {
+  it("accepts old backups without wallets, transfers, or goals", () => {
+    const legacy = {
+      formatVersion: BACKUP_FORMAT_VERSION_LEGACY,
+      createdAt: "2026-10-01T12:00:00.000Z",
+      settings: {
+        baseCurrency: "PKR",
+        exchangeRates: { USD: 280 },
+      },
+      categories: [
+        { id: "cat_food", name: "Food", createdAt: "2026-01-01T00:00:00.000Z" },
+      ],
+      expenses: [
+        {
+          id: "exp_1",
+          amountMinor: 1500,
+          currency: "PKR",
+          convertedAmountMinor: 1500,
+          exchangeRateUsed: 1,
+          description: "Lunch",
+          date: "2026-11-01T00:00:00.000Z",
+          categoryId: "cat_food",
+          paymentMethod: "Cash",
+          notes: "",
+          tags: ["food"],
+          recurringExpenseId: null,
+          receipt: {
+            fileName: "lunch.jpg",
+            mimeType: "image/jpeg",
+            sizeBytes: jpegBytes.byteLength,
+            receiptFile: "receipts/lunch.jpg",
+          },
+        },
+      ],
+      incomes: [
+        {
+          id: "inc_1",
+          amountMinor: 100000,
+          currency: "PKR",
+          convertedAmountMinor: 100000,
+          exchangeRateUsed: 1,
+          source: "Salary",
+          description: "November",
+          date: "2026-11-01T00:00:00.000Z",
+          recurringExpenseId: null,
+        },
+      ],
+      budgets: [
+        {
+          id: "bud_1",
+          categoryId: "cat_food",
+          monthlyLimitMinor: 50000,
+        },
+      ],
+      recurringItems: [],
+    };
+
+    const zip = zipSync({
+      "data.json": strToU8(JSON.stringify(legacy)),
+      "receipts/lunch.jpg": jpegBytes,
+    });
+    const parsed = parseBackupZip(zip);
+
+    expect(parsed.data.formatVersion).toBe(BACKUP_FORMAT_VERSION_LEGACY);
+    expect(parsed.data.wallets).toEqual([]);
+    expect(parsed.data.transfers).toEqual([]);
+    expect(parsed.data.goals).toEqual([]);
+    expect(parsed.data.expenses[0]?.walletId).toBeNull();
+    expect(parsed.data.incomes[0]?.walletId).toBeNull();
+    expect(parsed.preview).toMatchObject({
+      categories: 1,
+      expenses: 1,
+      incomes: 1,
+      budgets: 1,
+      receipts: 1,
+      recurringItems: 0,
+      wallets: 0,
+      transfers: 0,
+      goals: 0,
+      formatVersion: BACKUP_FORMAT_VERSION_LEGACY,
+    });
   });
 });
 
@@ -178,6 +314,7 @@ describe("tampered backup rejection", () => {
           paymentMethod: "Cash",
           notes: "",
           tags: [],
+          walletId: null,
           receipt: null,
         },
       ],
@@ -216,11 +353,36 @@ describe("tampered backup rejection", () => {
           paymentMethod: "Cash",
           notes: "",
           tags: [],
+          walletId: null,
           receipt: null,
         },
       ],
     });
     const zip = buildBackupZip(data, new Map());
     expect(() => parseBackupZip(zip)).toThrow(/Unknown categoryId/i);
+  });
+
+  it("rejects unknown wallet references on expenses", () => {
+    const data = sampleBackup({
+      expenses: [
+        {
+          id: "exp_bad",
+          amountMinor: 100,
+          currency: "PKR",
+          convertedAmountMinor: 100,
+          exchangeRateUsed: 1,
+          description: "Orphan wallet",
+          date: "2026-11-01T00:00:00.000Z",
+          categoryId: "cat_food",
+          paymentMethod: "Cash",
+          notes: "",
+          tags: [],
+          walletId: "missing_wallet",
+          receipt: null,
+        },
+      ],
+    });
+    const zip = buildBackupZip(data, new Map());
+    expect(() => parseBackupZip(zip)).toThrow(/Unknown walletId/i);
   });
 });

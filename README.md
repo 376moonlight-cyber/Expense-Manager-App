@@ -120,19 +120,20 @@ Use **Settings → Backup → Download backup**. The server builds:
 ```
 expense-tracker-backup-YYYY-MM-DD.zip
 ├── data.json          # format version, createdAt, settings (base currency + rates),
-│                      # categories, expenses, incomes, budgets, recurring items
+│                      # categories, expenses, incomes, budgets, recurring items,
+│                      # wallets, transfers, goals
 └── receipts/          # JPEG, PNG, or PDF files referenced by expenses
 ```
 
-Only the logged-in user’s data is included. The app records `lastBackupAt` and shows a gentle reminder if there has been no backup for 30 days.
+Only the logged-in user’s data is included. The app records `lastBackupAt` and shows a gentle reminder if there has been no backup for 30 days. Current backups use format version **2**. Older format version **1** ZIPs (without wallets/transfers/goals) can still be restored; missing wallets and goals are treated as empty.
 
 ### Restore backup
 
-Use **Settings → Restore** and upload a ZIP (max **50 MB**). The server validates format version, structure, field types, and that every referenced receipt exists (JPEG/PNG/PDF only; path traversal is rejected). Invalid files are rejected with a clear message and nothing is changed.
+Use **Settings → Restore** and upload a ZIP (max **50 MB**). The server validates format version, structure, field types, and that every referenced receipt exists (JPEG/PNG/PDF only; path traversal is rejected). Invalid files are rejected with a clear message and nothing is changed. The restore preview lists counts for categories, expenses, income, budgets, recurring items, wallets, transfers, goals, and receipts.
 
 After a successful preview you can:
 
-- **Merge** — keep current data; add missing categories (by name), budgets, expenses, income, and recurring items
-- **Replace** — delete current categories/expenses/income/budgets/recurring/receipts and load the backup (requires typing `RESTORE`)
+- **Merge** — keep current data; add missing categories/wallets/goals (by name), budgets, expenses, income, recurring items, and transfers
+- **Replace** — delete current categories/expenses/income/budgets/recurring/wallets/transfers/goals/receipts and load the backup (requires typing `RESTORE`)
 
-Restore runs in a database transaction. Restored rows always use the logged-in user’s id; ids from the file are remapped and never trusted as `userId`. Wallets and goals are not part of the ZIP backup format and are left as-is in the database.
+Restore runs in a database transaction. Restored rows always use the logged-in user’s id; ids from the file are remapped and never trusted as `userId`. Expense and income links to wallets are remapped the same way so they stay correct after restore.
