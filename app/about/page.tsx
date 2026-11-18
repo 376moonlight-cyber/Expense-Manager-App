@@ -55,7 +55,7 @@ async function AboutContent() {
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link href="/about" className="flex min-w-0 items-center gap-2.5">
             <img
-              src="/logo-mark.svg"
+              src="/logo-mark.png"
               alt=""
               width={32}
               height={32}

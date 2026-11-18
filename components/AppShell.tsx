@@ -141,7 +141,7 @@ export function AppShell({
         <div className="mx-auto flex min-h-14 max-w-5xl items-center justify-between gap-3 px-4 py-2">
           <div className="flex min-w-0 items-center gap-2.5">
             <img
-              src="/logo-mark.svg"
+              src="/logo-mark.png"
               alt=""
               width={32}
               height={32}
@@ -174,7 +174,7 @@ export function AppShell({
         <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-border bg-card px-3 py-6 md:flex lg:w-60">
           <div className="flex items-center gap-2.5 px-3 pb-6">
             <img
-              src="/logo-mark.svg"
+              src="/logo-mark.png"
               alt=""
               width={36}
               height={36}

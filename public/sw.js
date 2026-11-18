@@ -1,9 +1,11 @@
 /* Expense Tracker — simple app-shell service worker */
-const CACHE_NAME = "expense-tracker-shell-v1";
+const CACHE_NAME = "expense-tracker-shell-v2";
 
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
+  "/icon.png",
+  "/logo-mark.png",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
 ];

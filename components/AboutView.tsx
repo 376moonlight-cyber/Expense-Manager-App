@@ -131,7 +131,7 @@ export function AboutView({
           )}
         >
           <img
-            src="/logo-mark.svg"
+            src="/logo-mark.png"
             alt=""
             width={56}
             height={56}

@@ -29,7 +29,7 @@ export function AuthForm({ mode, action }: AuthFormProps) {
       <div className="text-center sm:text-left">
         <div className="flex items-center justify-center gap-3 sm:justify-start">
           <img
-            src="/logo-mark.svg"
+            src="/logo-mark.png"
             alt=""
             width={40}
             height={40}
