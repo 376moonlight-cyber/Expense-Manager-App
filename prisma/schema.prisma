@@ -255,3 +255,15 @@ model Goal {
 
   @@index([userId])
 }
+
+/// Sliding-window counters for auth rate limits (serverless-safe; shared via Postgres).
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  /// e.g. "login:ip:1.2.3.4" or "signup:email:user@example.com"
+  key         String   @unique
+  count       Int      @default(0)
+  windowStart DateTime
+  updatedAt   DateTime @updatedAt
+
+  @@index([windowStart])
+}
