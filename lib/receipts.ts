@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
-import { promises as fs } from "fs";
-import path from "path";
+import { BlobNotFoundError, del, get, put } from "@vercel/blob";
 
 export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
@@ -12,8 +11,6 @@ export const ALLOWED_RECEIPT_MIME_TYPES = {
 
 export type AllowedReceiptMimeType = keyof typeof ALLOWED_RECEIPT_MIME_TYPES;
 
-const UPLOADS_DIR = path.join(process.cwd(), "uploads");
-
 export function isAllowedReceiptMimeType(
   mimeType: string,
 ): mimeType is AllowedReceiptMimeType {
@@ -23,41 +20,96 @@ export function isAllowedReceiptMimeType(
   );
 }
 
-/** Absolute path for a stored relative `storagePath` (e.g. uploads/<uuid>.jpg). */
-export function absoluteReceiptPath(storagePath: string): string {
-  const resolved = path.resolve(process.cwd(), storagePath);
-  const uploadsRoot = path.resolve(UPLOADS_DIR);
-  if (
-    resolved !== uploadsRoot &&
-    !resolved.startsWith(uploadsRoot + path.sep)
-  ) {
+/** Ensure `storagePath` is a Vercel Blob HTTPS URL (never a local path). */
+export function assertReceiptStoragePath(storagePath: string): string {
+  let parsed: URL;
+  try {
+    parsed = new URL(storagePath);
+  } catch {
     throw new Error("Invalid receipt storage path.");
   }
-  return resolved;
+
+  if (parsed.protocol !== "https:") {
+    throw new Error("Invalid receipt storage path.");
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  const isBlobHost =
+    host === "blob.vercel-storage.com" ||
+    host.endsWith(".blob.vercel-storage.com");
+
+  if (!isBlobHost) {
+    throw new Error("Invalid receipt storage path.");
+  }
+
+  return storagePath;
 }
 
-export async function ensureUploadsDir(): Promise<void> {
-  await fs.mkdir(UPLOADS_DIR, { recursive: true });
-}
-
-/** Save bytes under uploads/ using a random UUID file name (never the original). */
+/** Upload bytes to private Vercel Blob using a random UUID file name. */
 export async function writeReceiptFile(
   mimeType: AllowedReceiptMimeType,
   data: Buffer,
 ): Promise<{ storagePath: string; sizeBytes: number }> {
-  await ensureUploadsDir();
   const fileName = `${randomUUID()}${ALLOWED_RECEIPT_MIME_TYPES[mimeType]}`;
-  const storagePath = path.posix.join("uploads", fileName);
-  await fs.writeFile(path.join(process.cwd(), storagePath), data);
-  return { storagePath, sizeBytes: data.byteLength };
+  const pathname = `receipts/${fileName}`;
+
+  const blob = await put(pathname, data, {
+    access: "private",
+    contentType: mimeType,
+    addRandomSuffix: false,
+  });
+
+  return { storagePath: blob.url, sizeBytes: data.byteLength };
+}
+
+/** Read a private blob into a Buffer (backup / restore helpers). */
+export async function readReceiptFile(storagePath: string): Promise<Buffer> {
+  const url = assertReceiptStoragePath(storagePath);
+  const result = await get(url, { access: "private" });
+
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    throw new Error("Receipt file is missing.");
+  }
+
+  const reader = result.stream.getReader();
+  const chunks: Uint8Array[] = [];
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) chunks.push(value);
+  }
+
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk)));
+}
+
+/** Stream a private blob for authenticated download responses. */
+export async function openReceiptStream(storagePath: string): Promise<{
+  stream: ReadableStream<Uint8Array>;
+  contentType: string | null;
+  size: number | null;
+}> {
+  const url = assertReceiptStoragePath(storagePath);
+  const result = await get(url, { access: "private" });
+
+  if (!result || result.statusCode !== 200 || !result.stream) {
+    throw new Error("Receipt file is missing.");
+  }
+
+  return {
+    stream: result.stream,
+    contentType: result.blob.contentType,
+    size: result.blob.size,
+  };
 }
 
 export async function deleteReceiptFile(storagePath: string): Promise<void> {
   try {
-    await fs.unlink(absoluteReceiptPath(storagePath));
+    const url = assertReceiptStoragePath(storagePath);
+    await del(url);
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code !== "ENOENT") throw error;
+    if (error instanceof BlobNotFoundError) return;
+    throw error;
   }
 }
 

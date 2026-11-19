@@ -5,6 +5,8 @@ import type { NextAuthConfig } from "next-auth";
  * Credentials + bcrypt live in auth.ts (Node runtime only).
  */
 export const authConfig = {
+  // Required on Vercel so Auth.js trusts the deployment host / AUTH_URL.
+  trustHost: true,
   pages: {
     signIn: "/login",
   },

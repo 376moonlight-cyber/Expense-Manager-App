@@ -6,7 +6,8 @@ const prisma = new PrismaClient();
 
 /**
  * Demo account for local / staging (password: password123).
- * Skip in production by setting SEED_DEMO_USER=false.
+ * Never created in production (NODE_ENV or VERCEL_ENV).
+ * Skip elsewhere with SEED_DEMO_USER=false.
  */
 const DEMO_USER = {
   email: "demo@example.com",
@@ -24,10 +25,19 @@ async function ensureUserCategories(userId: string) {
   }
 }
 
+function shouldSeedDemoUser(): boolean {
+  if (process.env.SEED_DEMO_USER === "false") return false;
+  if (process.env.NODE_ENV === "production") return false;
+  if (process.env.VERCEL_ENV === "production") return false;
+  return true;
+}
+
 async function main() {
-  const seedDemo = process.env.SEED_DEMO_USER !== "false";
+  const seedDemo = shouldSeedDemoUser();
   if (!seedDemo) {
-    console.log("Skipped demo user (SEED_DEMO_USER=false).");
+    console.log(
+      "Skipped demo user (production deploy or SEED_DEMO_USER=false).",
+    );
     // Still ensure any existing users have starter categories.
     const users = await prisma.user.findMany({ select: { id: true } });
     for (const user of users) {

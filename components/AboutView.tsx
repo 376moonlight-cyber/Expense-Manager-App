@@ -94,7 +94,7 @@ const FAQ = [
   },
   {
     q: "Where is my data stored?",
-    a: "App data lives in the database configured for this deployment (SQLite by default for local use). Receipt files are saved on the same device or server under a private uploads folder—not in a public cloud bucket.",
+    a: "App data lives in the PostgreSQL database configured for this deployment (for example Neon on Vercel). Receipt files are stored in a private Vercel Blob store and are only served through authenticated API routes.",
   },
   {
     q: "Can other users see my receipts?",
@@ -243,7 +243,7 @@ export function AboutView({
               <p>
                 Receipt uploads are private to your account: only a signed-in
                 session for your user can download them, and files live in a
-                private uploads folder on the same machine or server.
+                private Vercel Blob store (not publicly listed or hotlinked).
               </p>
               <p>
                 Passwords are hashed with bcrypt before they are stored. The app
