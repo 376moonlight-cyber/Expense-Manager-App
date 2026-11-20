@@ -24,13 +24,10 @@
 .DS_Store
 *.pem
 
-# private receipt uploads (legacy local folder; receipts now use Vercel Blob)
+# private receipt uploads (never serve from public/)
 /uploads
 
-# ephemeral embedded Postgres used only for local build verification
-/.tmp-embedded-pg
-
-# local SQLite database (legacy)
+# local SQLite database
 /prisma/*.db
 /prisma/*.db-journal
 /prisma/*.db-shm

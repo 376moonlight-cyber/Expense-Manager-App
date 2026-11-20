@@ -1,3 +1,4 @@
+import { promises as fs } from "fs";
 import path from "path";
 import { strToU8, strFromU8, zipSync, unzipSync } from "fflate";
 import { z } from "zod";
@@ -7,11 +8,11 @@ import { parseExchangeRates, currencyCodeSchema } from "@/lib/currency";
 import { normalizeTags } from "@/lib/expenses";
 import { prisma } from "@/lib/prisma";
 import {
+  absoluteReceiptPath,
   ALLOWED_RECEIPT_MIME_TYPES,
   deleteReceiptFile,
   isAllowedReceiptMimeType,
   matchesMimeMagic,
-  readReceiptFile,
   writeReceiptFile,
   type AllowedReceiptMimeType,
 } from "@/lib/receipts";
@@ -447,7 +448,9 @@ export async function collectUserBackupData(userId: string): Promise<{
         ] ?? path.extname(expense.receipt.storagePath) ?? ".bin";
       const zipName = `receipts/${expense.receipt.id}${ext.startsWith(".") ? ext : `.${ext}`}`;
       try {
-        const bytes = await readReceiptFile(expense.receipt.storagePath);
+        const bytes = await fs.readFile(
+          absoluteReceiptPath(expense.receipt.storagePath),
+        );
         receiptFiles.set(zipName, new Uint8Array(bytes));
         receipt = {
           fileName: expense.receipt.fileName,

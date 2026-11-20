@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  assertReceiptStoragePath,
+  absoluteReceiptPath,
   isAllowedReceiptMimeType,
   matchesMimeMagic,
 } from "@/lib/receipts";
@@ -28,26 +28,13 @@ describe("receipt helpers", () => {
     expect(matchesMimeMagic("image/jpeg", Buffer.from("%PDF-1.4"))).toBe(false);
   });
 
-  it("accepts private Vercel Blob URLs and rejects other paths", () => {
-    expect(
-      assertReceiptStoragePath(
-        "https://abc123.private.blob.vercel-storage.com/receipts/ok.jpg",
-      ),
-    ).toBe("https://abc123.private.blob.vercel-storage.com/receipts/ok.jpg");
-    expect(
-      assertReceiptStoragePath(
-        "https://store.public.blob.vercel-storage.com/receipts/ok.pdf",
-      ),
-    ).toBe("https://store.public.blob.vercel-storage.com/receipts/ok.pdf");
-
-    expect(() => assertReceiptStoragePath("uploads/ok.jpg")).toThrow(
+  it("rejects storage paths outside uploads/", () => {
+    expect(() => absoluteReceiptPath("uploads/ok.jpg")).not.toThrow();
+    expect(() => absoluteReceiptPath("../secret.txt")).toThrow(
       /Invalid receipt storage path/,
     );
-    expect(() => assertReceiptStoragePath("../secret.txt")).toThrow(
+    expect(() => absoluteReceiptPath("public/x.jpg")).toThrow(
       /Invalid receipt storage path/,
     );
-    expect(() =>
-      assertReceiptStoragePath("https://evil.example.com/receipts/ok.jpg"),
-    ).toThrow(/Invalid receipt storage path/);
   });
 });

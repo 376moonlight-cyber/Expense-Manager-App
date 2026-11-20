@@ -1,12 +1,11 @@
-// Prisma schema for personal expense tracker (PostgreSQL — Neon / Vercel)
+// Prisma schema for personal expense tracker (SQLite — local development)
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -123,7 +122,7 @@ model Receipt {
   fileName    String
   mimeType    String
   sizeBytes   Int
-  /// Private Vercel Blob URL (UUID file name, never the original)
+  /// Relative path under private uploads/ (UUID file name, never the original)
   storagePath String
   createdAt   DateTime @default(now())
 

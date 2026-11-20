@@ -1,15 +1,18 @@
+import { createReadStream } from "fs";
+import { stat } from "fs/promises";
+import { Readable } from "stream";
 import { NextRequest, NextResponse } from "next/server";
 import { jsonError, serverError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import {
+  absoluteReceiptPath,
   deleteReceiptFile,
-  openReceiptStream,
 } from "@/lib/receipts";
 import { requireUserId } from "@/lib/session";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-/** Stream the private Blob receipt (auth + per-user ownership required). */
+/** Stream the private on-disk receipt file (auth required). */
 export async function GET(_request: NextRequest, context: RouteContext) {
   try {
     const session = await requireUserId();
@@ -25,20 +28,24 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       return jsonError("Receipt not found.", 404);
     }
 
-    let blob;
+    const absolutePath = absoluteReceiptPath(receipt.storagePath);
+
     try {
-      blob = await openReceiptStream(receipt.storagePath);
+      await stat(absolutePath);
     } catch {
       return jsonError("Receipt file is missing.", 404);
     }
 
+    const nodeStream = createReadStream(absolutePath);
+    const webStream = Readable.toWeb(nodeStream) as ReadableStream;
+
     const dispositionName = receipt.fileName.replace(/["\r\n]/g, "_");
 
-    return new NextResponse(blob.stream, {
+    return new NextResponse(webStream, {
       status: 200,
       headers: {
-        "Content-Type": receipt.mimeType || blob.contentType || "application/octet-stream",
-        "Content-Length": String(blob.size ?? receipt.sizeBytes),
+        "Content-Type": receipt.mimeType,
+        "Content-Length": String(receipt.sizeBytes),
         "Content-Disposition": `inline; filename="${dispositionName}"`,
         "Cache-Control": "private, no-store",
       },
